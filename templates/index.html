@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLTRN Mix Engineer</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --border: #27272a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .logo-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .status-dot.disconnected {
+            background: var(--danger);
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            min-height: calc(100vh - 72px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        /* Track List */
+        .track-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .track-item {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .track-item:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent-glow);
+        }
+
+        .track-num {
+            width: 24px;
+            height: 24px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .track-name {
+            flex: 1;
+            font-size: 0.875rem;
+        }
+
+        .track-controls {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .track-btn {
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.625rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .track-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .track-btn.active {
+            background: var(--warning);
+            border-color: var(--warning);
+            color: black;
+        }
+
+        /* Main Content */
+        .content {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+
+        /* Prompt Input */
+        .prompt-container {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .prompt-input {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .prompt-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .prompt-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .btn {
+            padding: 0.875rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            font-size: 0.875rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5558e3;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border);
+        }
+
+        /* EQ Sliders */
+        .eq-container {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            padding: 1rem 0;
+        }
+
+        .eq-band {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .eq-slider {
+            -webkit-appearance: none;
+            width: 8px;
+            height: 120px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            outline: none;
+            writing-mode: vertical-lr;
+            direction: rtl;
+        }
+
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .eq-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .eq-value {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        /* Presets */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+
+        .preset-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: var(--text-primary);
+            font-size: 0.813rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        /* History Panel */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.813rem;
+        }
+
+        .history-version {
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .history-action {
+            color: var(--text-secondary);
+        }
+
+        /* Right Panel */
+        .right-panel {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .session-info {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .session-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .session-detail {
+            font-size: 0.813rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.25rem;
+        }
+
+        /* Transport Controls */
+        .transport {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .transport-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .transport-btn:hover {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .transport-btn.play {
+            width: 56px;
+            height: 56px;
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        /* Output/Result */
+        .output-box {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'SF Mono', monospace;
+            font-size: 0.813rem;
+            color: var(--text-secondary);
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+
+        /* File Upload */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-text {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* Action Buttons Row */
+        .action-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .action-row .btn {
+            flex: 1;
+        }
+
+        /* Waveform Placeholder */
+        .waveform {
+            height: 80px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            overflow: hidden;
+        }
+
+        .waveform-bar {
+            width: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+
+        @keyframes wave {
+            0%, 100% { height: 20%; }
+            50% { height: 80%; }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar, .right-panel {
+                display: none;
+            }
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-color: var(--success);
+        }
+
+        .toast.error {
+            border-color: var(--danger);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🎛️</div>
+            <div>
+                <div class="logo-text">VLTRN Mix Engineer</div>
+                <div class="logo-sub">AI-Powered Audio Production</div>
+            </div>
+        </div>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="chromeStatus"></div>
+                <span id="chromeUrl">Connecting...</span>
+            </div>
+            <div class="status-item">
+                <span>FFmpeg:</span>
+                <div class="status-dot" id="ffmpegStatus"></div>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Left Sidebar: Tracks -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">SUNO Studio Tracks</div>
+                <div class="track-list" id="trackList">
+                    <div class="track-item" style="opacity: 0.5;">
+                        <div class="track-num">-</div>
+                        <div class="track-name">No tracks loaded</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="refreshTracks()">
+                    Refresh Tracks
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Quick Actions</div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="navigateToStudio()">Open SUNO Studio</button>
+                    <button class="btn btn-secondary" onclick="listFiles()">Browse Files</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Prompt Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Natural Language Mixing</span>
+                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.75rem;" onclick="showHelp()">
+                        Examples
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="prompt-container">
+                        <input type="text" class="prompt-input" id="promptInput"
+                               placeholder="Describe what you want... e.g., 'make it brighter and add punch'"
+                               onkeypress="if(event.key === 'Enter') sendPrompt()">
+                        <button class="btn btn-primary" onclick="sendPrompt()">Apply</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EQ Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">3-Band EQ</span>
+                </div>
+                <div class="card-body">
+                    <div class="eq-container">
+                        <div class="eq-band">
+                            <span class="eq-value" id="bassValue">0 dB</span>
+                            <input type="range" class="eq-slider" id="bassSlider" min="-12" max="12" value="0"
+                                   oninput="updateEQ()">
+                            <span class="eq-label">Bass</span>
+                        </div>
+                        <div class="eq-band">
+                            <span class="eq-value" id="midValue">0 dB</span>
+                            <input type="range" class="eq-slider" id="midSlider" min="-12" max="12" value="0"
+                                   oninput="updateEQ()">
+                            <span class="eq-label">Mid</span>
+                        </div>
+                        <div class="eq-band">
+                            <span class="eq-value" id="trebleValue">0 dB</span>
+                            <input type="range" class="eq-slider" id="trebleSlider" min="-12" max="12" value="0"
+                                   oninput="updateEQ()">
+                            <span class="eq-label">Treble</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="applyEQ()">
+                        Apply EQ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Presets Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Mix Presets</span>
+                </div>
+                <div class="card-body">
+                    <div class="preset-grid">
+                        <button class="preset-btn" onclick="applyPreset('vocal_presence')">Vocal Presence</button>
+                        <button class="preset-btn" onclick="applyPreset('warm_vintage')">Warm Vintage</button>
+                        <button class="preset-btn" onclick="applyPreset('modern_pop')">Modern Pop</button>
+                        <button class="preset-btn" onclick="applyPreset('lo_fi')">Lo-Fi</button>
+                        <button class="preset-btn" onclick="applyPreset('radio_ready')">Radio Ready</button>
+                        <button class="preset-btn" onclick="applyPreset('cinematic')">Cinematic</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Output</span>
+                </div>
+                <div class="card-body">
+                    <div class="output-box" id="outputBox">Ready for mixing commands...</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="right-panel">
+            <!-- Session Info -->
+            <div class="sidebar-section">
+                <div class="sidebar-title">Session</div>
+                <div class="session-info">
+                    <div class="session-name" id="sessionName">No session</div>
+                    <div class="session-detail">
+                        <span>Version:</span>
+                        <span id="sessionVersion">-</span>
+                    </div>
+                    <div class="session-detail">
+                        <span>Source:</span>
+                        <span id="sessionSource">-</span>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" style="width: 100%;" onclick="startSession()">
+                    New Session
+                </button>
+            </div>
+
+            <!-- Transport Controls -->
+            <div class="sidebar-section">
+                <div class="sidebar-title">Transport</div>
+                <div class="transport">
+                    <button class="transport-btn" onclick="studioStop()">⏹</button>
+                    <button class="transport-btn play" onclick="studioPlay()">▶</button>
+                </div>
+            </div>
+
+            <!-- Upload -->
+            <div class="sidebar-section">
+                <div class="sidebar-title">Load Audio</div>
+                <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">Drop audio file or click to browse</div>
+                </div>
+                <input type="file" id="fileInput" accept="audio/*" style="display: none;" onchange="uploadFile(this)">
+            </div>
+
+            <!-- Actions -->
+            <div class="sidebar-section">
+                <div class="sidebar-title">Actions</div>
+                <div class="action-row">
+                    <button class="btn btn-secondary" onclick="undoAction()">Undo</button>
+                    <button class="btn btn-primary" onclick="exportMix()">Export</button>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="sidebar-section">
+                <div class="sidebar-title">History</div>
+                <div class="history-list" id="historyList">
+                    <div class="history-item" style="opacity: 0.5;">No actions yet</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let presets = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshStatus();
+            loadPresets();
+            setInterval(refreshStatus, 10000);
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('mix_update', (data) => {
+            updateOutput(data.result);
+            document.getElementById('sessionVersion').textContent = 'v' + data.version;
+        });
+
+        // API Functions
+        async function refreshStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                // Update Chrome status
+                const chromeStatus = document.getElementById('chromeStatus');
+                const chromeUrl = document.getElementById('chromeUrl');
+
+                if (data.status === 'connected') {
+                    chromeStatus.classList.remove('disconnected');
+                    const url = data.chrome_url || 'Unknown';
+                    chromeUrl.textContent = url.length > 40 ? url.substring(0, 40) + '...' : url;
+
+                    if (data.in_studio && data.tracks.length > 0) {
+                        updateTrackList(data.tracks);
+                    }
+                } else {
+                    chromeStatus.classList.add('disconnected');
+                    chromeUrl.textContent = 'Disconnected';
+                }
+
+                // Update FFmpeg status
+                const ffmpegStatus = document.getElementById('ffmpegStatus');
+                if (data.tools && data.tools.ffmpeg) {
+                    ffmpegStatus.classList.remove('disconnected');
+                } else {
+                    ffmpegStatus.classList.add('disconnected');
+                }
+
+                // Update session info
+                if (data.session) {
+                    document.getElementById('sessionName').textContent = data.session.name;
+                    document.getElementById('sessionVersion').textContent = 'v' + data.session.version;
+                    if (data.session.current_file) {
+                        const filename = data.session.current_file.split('/').pop();
+                        document.getElementById('sessionSource').textContent = filename;
+                    }
+                }
+
+            } catch (e) {
+                console.error('Status error:', e);
+            }
+        }
+
+        async function refreshTracks() {
+            try {
+                const res = await fetch('/api/studio/tracks');
+                const data = await res.json();
+                updateTrackList(data.tracks);
+            } catch (e) {
+                showToast('Failed to get tracks', 'error');
+            }
+        }
+
+        function updateTrackList(tracks) {
+            const list = document.getElementById('trackList');
+            if (tracks.length === 0) {
+                list.innerHTML = '<div class="track-item" style="opacity: 0.5;"><div class="track-num">-</div><div class="track-name">No tracks loaded</div></div>';
+                return;
+            }
+
+            list.innerHTML = tracks.map(t => `
+                <div class="track-item">
+                    <div class="track-num">${t.num}</div>
+                    <div class="track-name">${t.name}</div>
+                    <div class="track-controls">
+                        <button class="track-btn" onclick="soloTrack(${t.num})">S</button>
+                        <button class="track-btn" onclick="muteTrack(${t.num})">M</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function sendPrompt() {
+            const input = document.getElementById('promptInput');
+            const prompt = input.value.trim();
+
+            if (!prompt) return;
+
+            updateOutput('Processing: ' + prompt + '...');
+
+            try {
+                const res = await fetch('/api/mix', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({prompt})
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    updateOutput(data.result);
+                    input.value = '';
+                    showToast('Applied successfully', 'success');
+                    refreshHistory();
+                } else {
+                    updateOutput('Error: ' + data.error);
+                    showToast(data.error, 'error');
+                }
+            } catch (e) {
+                updateOutput('Error: ' + e.message);
+                showToast('Request failed', 'error');
+            }
+        }
+
+        function updateOutput(text) {
+            document.getElementById('outputBox').textContent = text;
+        }
+
+        function updateEQ() {
+            const bass = document.getElementById('bassSlider').value;
+            const mid = document.getElementById('midSlider').value;
+            const treble = document.getElementById('trebleSlider').value;
+
+            document.getElementById('bassValue').textContent = (bass >= 0 ? '+' : '') + bass + ' dB';
+            document.getElementById('midValue').textContent = (mid >= 0 ? '+' : '') + mid + ' dB';
+            document.getElementById('trebleValue').textContent = (treble >= 0 ? '+' : '') + treble + ' dB';
+        }
+
+        async function applyEQ() {
+            const bass = document.getElementById('bassSlider').value;
+            const mid = document.getElementById('midSlider').value;
+            const treble = document.getElementById('trebleSlider').value;
+
+            const prompt = [];
+            if (bass > 0) prompt.push(`boost bass ${bass}dB`);
+            if (bass < 0) prompt.push(`cut bass ${Math.abs(bass)}dB`);
+            if (mid > 0) prompt.push(`boost mids ${mid}dB`);
+            if (mid < 0) prompt.push(`cut mids ${Math.abs(mid)}dB`);
+            if (treble > 0) prompt.push(`boost treble ${treble}dB`);
+            if (treble < 0) prompt.push(`cut treble ${Math.abs(treble)}dB`);
+
+            if (prompt.length === 0) {
+                showToast('No EQ changes to apply', 'error');
+                return;
+            }
+
+            document.getElementById('promptInput').value = prompt.join(', ');
+            sendPrompt();
+        }
+
+        async function loadPresets() {
+            try {
+                const res = await fetch('/api/presets');
+                const data = await res.json();
+                presets = data.presets;
+            } catch (e) {
+                console.error('Failed to load presets');
+            }
+        }
+
+        async function applyPreset(presetKey) {
+            if (presets[presetKey]) {
+                document.getElementById('promptInput').value = presets[presetKey].prompt;
+                sendPrompt();
+            }
+        }
+
+        async function startSession() {
+            const name = prompt('Session name:', 'mix_' + Date.now());
+            if (!name) return;
+
+            try {
+                const res = await fetch('/api/session', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name})
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('sessionName').textContent = data.session.name;
+                    showToast('Session started', 'success');
+                }
+            } catch (e) {
+                showToast('Failed to start session', 'error');
+            }
+        }
+
+        async function uploadFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('File uploaded: ' + data.filename, 'success');
+
+                    // Set as source
+                    await fetch('/api/source', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({path: data.path})
+                    });
+
+                    document.getElementById('sessionSource').textContent = data.filename;
+                }
+            } catch (e) {
+                showToast('Upload failed', 'error');
+            }
+        }
+
+        async function undoAction() {
+            try {
+                const res = await fetch('/api/undo', {method: 'POST'});
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                refreshStatus();
+            } catch (e) {
+                showToast('Undo failed', 'error');
+            }
+        }
+
+        async function exportMix() {
+            const filename = prompt('Export filename:', 'final_mix.mp3');
+            if (!filename) return;
+
+            try {
+                const res = await fetch('/api/export', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({filename})
+                });
+                const data = await res.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+            } catch (e) {
+                showToast('Export failed', 'error');
+            }
+        }
+
+        async function refreshHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+
+                const list = document.getElementById('historyList');
+                if (data.history.length === 0) {
+                    list.innerHTML = '<div class="history-item" style="opacity: 0.5;">No actions yet</div>';
+                    return;
+                }
+
+                list.innerHTML = data.history.slice(-5).reverse().map(h => `
+                    <div class="history-item">
+                        <div class="history-version">v${h.version} - ${h.action}</div>
+                        <div class="history-action">${JSON.stringify(h.params)}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('History error');
+            }
+        }
+
+        // Studio controls
+        async function soloTrack(num) {
+            await fetch(`/api/studio/solo/${num}`, {method: 'POST'});
+            showToast(`Solo track ${num}`, 'success');
+        }
+
+        async function muteTrack(num) {
+            await fetch(`/api/studio/mute/${num}`, {method: 'POST'});
+            showToast(`Mute track ${num}`, 'success');
+        }
+
+        async function studioPlay() {
+            await fetch('/api/studio/play', {method: 'POST'});
+        }
+
+        async function studioStop() {
+            await fetch('/api/studio/stop', {method: 'POST'});
+        }
+
+        async function navigateToStudio() {
+            await fetch('/api/studio/navigate', {method: 'POST'});
+            showToast('Navigating to SUNO Studio', 'success');
+            setTimeout(refreshTracks, 3000);
+        }
+
+        function showHelp() {
+            updateOutput(`Natural Language Mixing Examples:
+
+EQ / Tone:
+  "make it brighter"
+  "add more bass"
+  "cut the mids, it's muddy"
+  "make it warmer"
+
+Compression / Dynamics:
+  "add some punch"
+  "make it glue together"
+  "heavy compression"
+
+Reverb / Space:
+  "add hall reverb"
+  "make it sound bigger"
+  "add subtle room ambience"
+
+Volume / Levels:
+  "make it louder"
+  "turn it down 3dB"
+
+Stereo / Width:
+  "make it wider"
+  "narrow the stereo image"
+
+Mastering:
+  "master for streaming"
+  "finalize the mix"`);
+        }
+
+        function listFiles() {
+            fetch('/api/files')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.files.length === 0) {
+                        updateOutput('No audio files found.');
+                        return;
+                    }
+                    updateOutput('Available files:\n\n' +
+                        data.files.map(f => `[${f.folder}] ${f.name}`).join('\n'));
+                });
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toast.className = 'toast ' + type;
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
